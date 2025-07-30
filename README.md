@@ -32,7 +32,7 @@ However, that was not the case. Tools like [Il2CppDumper](https://github.com/Per
 ---
 
 ## 2. Completely Lost
-Initially i wanted to dump lua bytecode of the game. I already knew that the game uses XLua, but what was the problem? First VMProtect, then how to hook `xluaL_loadbuffer` or `luaL_loadbuffer` and dump lua? Well [frida-il2cpp-bridge](https://github.com/vfsfitvnm/frida-il2cpp-bridge) exists, so lets try with that!
+Initially i wanted to dump lua bytecode of the game. I already knew that the game uses XLua, and so i had to hook `xluaL_loadbuffer` or `luaL_loadbuffer` and dump lua, but know to do that? Well [frida-il2cpp-bridge](https://github.com/vfsfitvnm/frida-il2cpp-bridge) exists, so lets try with that!
 
 Script:
 ```ts
@@ -57,7 +57,7 @@ Script error: il2cpp: couldn't resolve export il2cpp_get_corlib
     at <anonymous> (index.ts:47)
 ```
 
-Ah! Well they obfuscated the exports table, just have to find the functions, get the offset and do as its said in [frida-il2cpp-bridge](https://github.com/vfsfitvnm/frida-il2cpp-bridge) source code comments. Right [here](https://github.com/vfsfitvnm/frida-il2cpp-bridge/blob/18cb9bea203c333366c456482c32dc64fe54c1e9/lib/exports.ts#L18), and so i ended up in a situation where i have to find all the il2cpp exports. Wow, not a 5 minutes job, so i prefered to try something else and have this as last resort. Looking into IDA, dump.cs and game files, i found out that the game uses [HybridCLR](https://hybridclr.doc.code-philosophy.com/en/) but the C# assemblies did not looked that good: 
+Ah! Well they obfuscated the exports table, just have to find the functions, get the offset and do as its said in [frida-il2cpp-bridge](https://github.com/vfsfitvnm/frida-il2cpp-bridge) source code comments. Right [here](https://github.com/vfsfitvnm/frida-il2cpp-bridge/blob/18cb9bea203c333366c456482c32dc64fe54c1e9/lib/exports.ts#L18). So i ended up in a situation where i had to find all the il2cpp exports. Wow, not a 5 minutes task, so i prefered to try something else and have this as last resort. Looking into IDA, dump.cs and game files, i found out that the game uses [HybridCLR](https://hybridclr.doc.code-philosophy.com/en/) but the C# assemblies did not looked that good: 
 
 <img width="598" height="275" alt="image" src="https://github.com/user-attachments/assets/4f70bb55-4f45-4ae7-8f82-01c99065897f" />
  
@@ -78,7 +78,7 @@ public class AESEncryption // TypeDefIndex: 15277
 	private static void .cctor() { }
 }
 ```
-Well well well, this `public static byte[] AESDecrypt(byte[] cipherText, string strKey) { }` method is really interesting and especially what it returns. So i setuped in IDA a break point on the return, and for my luck it reached. I had under my nose, the decrypted bytes of one of the .dll's and also `string strKey`. Known the structs:
+Well well well, this `public static byte[] AESDecrypt(byte[] cipherText, string strKey) { }` method is really interesting, especially what it returns. So i setuped in IDA a break point on the return, and for my luck it reached. I had under my nose, the decrypted bytes of one of the .dll's and also `string strKey`. Known the structs:
 <table>
   <tr>
     <th>System_String_o (strKey)</th>
@@ -122,7 +122,7 @@ Well well well, this `public static byte[] AESDecrypt(byte[] cipherText, string 
   </tr>
 </table>
 
-and the register where they where stored, i could during runtime dump the decryption key and the decrypted assemblies. Here is the python script used for dumping the decrypted assemblies:
+and the register where they where stored, i could, during runtime, dump the decryption key and the decrypted assemblies. Here is the python script used for dumping the decrypted assemblies:
 ```python
 import idaapi
 import idc
@@ -169,7 +169,7 @@ For the decrypt key, its the same things, read the memory based on the struct, d
 
 ## 3. HybridCLR
 
-Now we had readable C# assemblies, that could be loaded in tools like [dnSpy](https://github.com/dnSpyEx/dnSpy) or [ILSpy](https://github.com/icsharpcode/ILSpy). But i didn't like how i dumped those, and also if they are updated in the future, i don't want to dump them again during runtime using IDA. So the first thing i did is search for any hint of a `AESDecrypt` method inside those assemblies, in search of the same algorith they used to decrypt the dlls. Another bit of luck hit me, i found a similar method, inside Funplus.Archive.dll.
+Now we had readable C# assemblies, that could be loaded in tools like [dnSpy](https://github.com/dnSpyEx/dnSpy) or [ILSpy](https://github.com/icsharpcode/ILSpy). But i didn't like how i dumped them, and also if they are updated in the future, i don't want to dump them again in runtime using IDA. So the first thing i did is search for any hint of a `AESDecrypt` method inside those assemblies, in search of the same algorith they used to decrypt the dlls. Another bit of luck hit me, i found a similar method, inside Funplus.Archive.dll.
 ```csharp
 public static byte[] AESDecrypt(byte[] cipherText, string strKey)
 {
@@ -206,7 +206,7 @@ Known the AES algorith, the KEY and the IV, i could statically decrypt the assem
 
 ## 4. LuaArchive
 
-Now that i had c# assemblies, i could finally focus on how files inside `game\GuiLongchao_Data\PersistentPath\Patch\Lua` are loaded into the game. If you take a look at them in a Hex-Editor, you can see that they does not seems to be lua bytecode at first glance. Well they are more than that. They are actually custom archives, which inside does not only have lua scripts but also game tables, datas and more. The logic to parse this files is stored in `Funplus.Archive.dll`. I got lost many times trying to follow how they read this files. But here is know they do that. The files before the actually content of the file as an header, splitted in `ArchiveFileHead` and `ArchiveFileInfo`:
+Now that i had c# assemblies, i could finally focus on how files inside `game\GuiLongchao_Data\PersistentPath\Patch\Lua` are loaded into the game. If you take a look at them in a Hex-Editor, you can see that they does not seems to be lua bytecode at first glance. Well they are more than that. They are actually custom archives, which inside does not only have lua scripts but also game tables, datas and more. The logic to parse this files is stored in `Funplus.Archive.dll`. I got lost many times trying to follow how they read this files. But here is how they do that. The archives before the actually content of the file as an header, splitted in `ArchiveFileHead` and `ArchiveFileInfo`:
 <table>
   <tr>
     <th>ArchiveFileHead</th>
@@ -295,7 +295,7 @@ public static string Decrypt(char[] data, string secretKey)
   return new string(data);
 }
 ```
-I reimplemented everything in python, and this was the result was:
+I reimplemented everything in python, and this what the result was:
 ```shell
 File found: C:\Program Files (x86)\haowancheng\GuiLongchaoBili\game\GuiLongchao_Data\PersistentPath\Patch\Lua\Xlualibs.bytes
 Reading file head...
@@ -308,7 +308,7 @@ File 2: {'fileName': 'xlualibs/perf/profiler', 'pos': 565, 'len': 6061}
 File 3: {'fileName': 'xlualibs/tdr/tdr', 'pos': 6626, 'len': 4237}
 File 4: {'fileName': 'xlualibs/xlua/util', 'pos': 10863, 'len': 10063}
 ```
-Nice. Now we know the position of each file in the archive and their length, but still know do i read them? Are they encrypted? Well we actually know the startPosition of the archive content, and its set in the method `public bool Read(string strFileName)` after reading `ArchiveFileHead` and `ArchiveFileInfo`:
+Nice. Now we know the position of each file in the archive and their length, but still, how do i read them? Are they encrypted? Well we actually know the startPosition of the archive content, and its set in the method `public bool Read(string strFileName)` after reading `ArchiveFileHead` and `ArchiveFileInfo`:
 ```csharp
 bool flag;
 try
@@ -331,7 +331,7 @@ try
 }
 catch (Exception ex) { ... }
 ```
-So we manage to get:
+So we add this pieace of imformation in the reimplementation and we manage to get this:
 ```shell
 File found: C:\Program Files (x86)\haowancheng\GuiLongchaoBili\game\GuiLongchao_Data\PersistentPath\Patch\Lua\Xlualibs.bytes
 Reading file head...
@@ -345,7 +345,7 @@ File 2: {'fileName': 'xlualibs/perf/profiler', 'pos': 565, 'len': 6061}
 File 3: {'fileName': 'xlualibs/tdr/tdr', 'pos': 6626, 'len': 4237}
 File 4: {'fileName': 'xlualibs/xlua/util', 'pos': 10863, 'len': 10063}
 ```
-The last step is to find how each file is read. Well, easy, why just need to take a look at `public byte[] ReadFile(string strFileName)`:
+The last step is to find how each file is read. Well, easy, we just need to take a look at `public byte[] ReadFile(string strFileName)`:
 ```csharp
 public byte[] ReadFile(string strFileName)
 {
@@ -372,7 +372,7 @@ Logger.LogError("read file:" + strFileName + " not find in dicts!");
 return null;
 }
 ```
-As we can see, each file start is set based on the this.startPosition + archiveFileInfo.pos, so for example, the `file: xlualibs/xlua/util which is at pos: 10863, starts at 169 + 10863 = 11032`. Then there is the `SimpleTextHelper.DecryptBytes` that use the same key as erlier (even though this this time the key is useless, seems like a placeholder), and looks like this:
+As we can see, each file startPosition is set based on the archiveContent startPosition + archiveFileInfo.pos, so for example, the `file: xlualibs/xlua/util which is at pos: 10863, starts at 169 + 10863 = 11032`. Then there is `SimpleTextHelper.DecryptBytes` that use the same key as erlier (even though this time the key is useless, seems like a placeholder), and looks like this:
 ```csharp
 public static byte[] DecryptBytes(byte[] data, string secretKey)
 {
@@ -384,13 +384,13 @@ public static byte[] DecryptBytes(byte[] data, string secretKey)
   return data;
 }
 ```
-And with that we successfully managed to extract and decrypt al the files inside LuaArchives. You can find my reimplementation with some usefull methods to extract each file, [here](https://github.com/formagGinoo/GuiLongchaoReverse/tree/7f9e90c91134e625cd3a9694199aae0ba35e2492/LuaArchiveUtils). I also included `SimpleTextHelper.textEncryptKey` this time. (PS: Im not that evil ^_~)
+And with that we successfully managed to extract and decrypt all the files inside each LuaArchive. You can find my reimplementation with some usefull methods to extract each file, [here](https://github.com/formagGinoo/GuiLongchaoReverse/tree/7f9e90c91134e625cd3a9694199aae0ba35e2492/LuaArchiveUtils). I also included `SimpleTextHelper.textEncryptKey` this time. (PS: Im not that evil ^_~)
 
 ---
 
 ## 5. Lua Bytecode
 
-Finally we have some Lua bytecode of the scripts used in the game, probably not all the script, some are surely inside some assetbundles. The lua version used by the game is 5.1.5, also confirmed by the bytecode magic header: LuaQ. There is not any sort of custom header, like the one used in Xlua Lua 5.3.5, but the developers swapped the order on the OPCODES, and made also something else. How do i know that? Well, by using a preatty helpul tool [XLuaDumper](https://github.com/fengberd/xLuaDumper/tree/master). This tool was made for an xlua.dll that used Lua 5.3.5, so i had to single change the functions used, and their arguments:
+Finally we have some Lua bytecode of the scripts used in the game, probably not all the scripts, some are surely inside some assetbundles. The lua version used by the game is `5.1.5`, also confirmed by the bytecode magic header: `LuaQ`. There is not any sort of custom header, like the one used in `Xlua - Lua 5.3.5`, but the developers swapped the order on the OPCODES, and maybe made also something else. How do i know that? Well, by using a pretty helpul tool [XLuaDumper](https://github.com/fengberd/xLuaDumper/tree/master). This tool was made for a xlua.dll that used `Lua 5.3.5`, so i had to change the functions used, and their arguments:
 - from `luaL_loadfilex(lua_State * L, const char* file, const char* mode)` to `luaL_loadfile(lua_State * L, const char* file)`
 - from `lua_dump(lua_State * L, lua_Writer writer, void* data, int strip)` to `lua_dump(lua_State * L, lua_Writer writer, void* data)`
 
