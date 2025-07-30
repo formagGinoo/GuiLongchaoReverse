@@ -505,6 +505,8 @@ Unknown opcode: 35 - CLOSE
 
 Something is off, and i can't figure it out. Please help meeeeee!! ＞﹏＜
 
+You can find Lua Binary via XLua [here](https://github.com/formagGinoo/GuiLongchaoReverse/blob/df230e5044b710d869c2e77fc3f5539bcca13e38/xLuaDumper5.1/xlua.luac) and Lua Binary via Lua51 [here](https://github.com/formagGinoo/GuiLongchaoReverse/blob/df230e5044b710d869c2e77fc3f5539bcca13e38/xLuaDumper5.1/lua51.luac), so you can take a look yourself. The lua source code used can be found [here](https://github.com/formagGinoo/GuiLongchaoReverse/blob/df230e5044b710d869c2e77fc3f5539bcca13e38/xLuaDumper5.1/opcode.lua)
+
 ---
 
 Feel free to contribute on this project [here](https://discord.com/channels/603359898507673630/1229379510324039780).
