@@ -11,6 +11,13 @@ All rights to the original game, its code, and content belong to their respectiv
 
 ---
 
+## ©️ Credits
+
+- [XLuaDumper](https://github.com/fengberd/xLuaDumper) by [fengberd](https://github.com/fengberd)
+- [Check Op Codes](https://bbs.kanxue.com/thread-250618.htm) mentioned in [fengberd](https://github.com/fengberd) [article](https://blog.berd.moe/archives/xlua-reverse-note/)
+
+---
+
 ## 📚 Table of Contents
 
 1. [Dumping IL2CPP](#1-dumping-il2cpp)
