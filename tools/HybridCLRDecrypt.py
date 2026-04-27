@@ -3,14 +3,14 @@ from Crypto.Cipher import AES
 from Crypto.Util.Padding import unpad
 
 # === PARAMETERS ===
-key_bytes = b"read README.md and find it"[:16]  # your key
+key_bytes = b"binpuikongasxiny"[:16]
 iv = bytes([
     0x12, 0x34, 0x56, 0x78, 0x90, 0xAB, 0xCD, 0xEF,
     0x12, 0x34, 0x56, 0x78, 0x90, 0xAB, 0xCD, 0xEF
 ])
 
 input_folder = ""  # folder containing encrypted .dll files
-output_folder = "/DecryptedHybridCLR"  # output folder
+output_folder = "../DecryptedHybridCLR"  # output folder
 
 os.makedirs(output_folder, exist_ok=True)
 
@@ -32,9 +32,9 @@ def decrypt_all_dll_files():
                 decrypted = aes_decrypt(ciphertext)
                 with open(output_path, "wb") as out:
                     out.write(decrypted)
-                print(f"Decrypted {filename} -> {output_path}")
+                print(f"✔️ Decrypted {filename} -> {output_path}")
             except Exception as e:
-                print(f"Failed to decrypt {filename}: {e}")
+                print(f"❌ Failed to decrypt {filename}: {e}")
 
 if __name__ == "__main__":
     decrypt_all_dll_files()
