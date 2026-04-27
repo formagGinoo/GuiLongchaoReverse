@@ -1,6 +1,8 @@
 import struct
 import io
 import os
+import shutil
+import re
 from structures import ArchiveFileHead, ArchiveFileInfo
 
 # === FPArchive.SimpleTextHelper START ===
@@ -86,6 +88,11 @@ def ReadFileInfo(f, secret_key: str):
 
 # === CUSTOM FUNCTIONS ===
 
+def IsLuaBytecode(path):
+    with open(path, "rb") as f:
+        header = f.read(4)
+    return header == b'\x1bLua'
+
 def ExtractSingleFile(f, archive_file_info, start_position, text_encrypt_key):
     """
     Extract a single file from the archive, equivalent to C# method:
@@ -112,9 +119,9 @@ def ExtractSingleFile(f, archive_file_info, start_position, text_encrypt_key):
     
     return decrypted_data
 
-def ExtractFilesFromFolder(input_folder: str, secret_key: str, output_root="output"):
+def ExtractFilesFromFolder(input_folder: str, secret_key: str, output_root="LuaArchiveExtracted"):
     for filename in os.listdir(input_folder):
-        if filename.endswith('.json') or filename.endswith('.bin'):
+        if filename.endswith('.json') or filename.endswith('.bin') or filename.endswith('.temp'):
             continue
         input_file_path = os.path.join(input_folder, filename)
         if not os.path.isfile(input_file_path):
@@ -148,3 +155,134 @@ def ExtractFilesFromFolder(input_folder: str, secret_key: str, output_root="outp
                 print(f"Extracted: {entry.fileName} ({entry.len} bytes)")
 
         print(f"Done extracting from {filename}.")
+    print("All archives processed.")
+    print(f"Starting merge and cleanup of extracted structure in {output_root}...")
+    # After extracting all archives, merge and clean the extracted structure
+    try:
+        merged_path = MergeLuaArchives(output_root)
+        print(f"Merge completed. Output saved to: {merged_path}")
+    except Exception as e:
+        print(f"Error while merging extracted folders: {e}")
+
+
+def MergeLuaArchives(base_dir: str, merged_dir: str = None) -> str:
+    """
+    Merge extracted Lua archive folders and files with structured output.
+
+    - Groups folders by pattern (e.g., Configs, Configs_1, Configs_2 -> configs/)
+    - Renames files ending with `_json` to `.json`
+    - Adds `.luac` extension to files without any suffix
+    - Handles duplicate files by appending `_N` suffix
+
+    Returns the path to the merged directory.
+    """
+    group_pattern = re.compile(r"^([A-Za-z]+)(?:_\d+)?$")
+
+    # collect all top-level directories to process BEFORE creating temp dir
+    top_dirs = [os.path.join(base_dir, n) for n in os.listdir(base_dir) if os.path.isdir(os.path.join(base_dir, n))]
+
+    # We'll merge into a temporary folder, then move contents into base_dir
+    temp_merged = merged_dir or os.path.join(base_dir, "_merged_tmp")
+    # ensure temp is clean
+    if os.path.exists(temp_merged):
+        shutil.rmtree(temp_merged)
+    os.makedirs(temp_merged, exist_ok=True)
+    # if temp created inside base_dir accidentally listed among top_dirs, exclude it
+    if temp_merged in top_dirs:
+        top_dirs.remove(temp_merged)
+
+    # Build groups based on folder names
+    folder_groups = {}
+    for full_path in top_dirs:
+        name = os.path.basename(full_path)
+        match = group_pattern.match(name)
+        grp = match.group(1) if match else name
+        folder_groups.setdefault(grp, []).append(full_path)
+
+    # Merge into temp_merged
+    for group_name, paths in folder_groups.items():
+        target_root = os.path.join(temp_merged, group_name.lower())
+        for path in paths:
+            for root, dirs, files in os.walk(path):
+                # Compute a cleaned relative path to avoid duplicating the group folder name
+                rel_path = os.path.relpath(root, path)
+                if rel_path == ".":
+                    rel_path = ""
+                else:
+                    parts = rel_path.split(os.sep)
+                    # if the first component equals group_name, drop it to prevent group/group
+                    if parts and parts[0].lower() == group_name.lower():
+                        parts = parts[1:]
+                    rel_path = os.path.join(*parts) if parts else ""
+
+                dest_dir = os.path.join(target_root, rel_path) if rel_path else target_root
+                os.makedirs(dest_dir, exist_ok=True)
+
+                for file in files:
+                    if file.endswith("_json"):
+                        new_file_name = file[:-5] + ".json"
+                    elif IsLuaBytecode(os.path.join(root, file)):
+                        new_file_name = file + ".luac"
+                    else:
+                        new_file_name = file
+
+                    src_file = os.path.join(root, file)
+                    dst_file = os.path.join(dest_dir, new_file_name)
+
+                    if os.path.exists(dst_file):
+                        base_name, ext = os.path.splitext(new_file_name)
+                        i = 1
+                        while os.path.exists(os.path.join(dest_dir, f"{base_name}_{i}{ext}")):
+                            i += 1
+                        dst_file = os.path.join(dest_dir, f"{base_name}_{i}{ext}")
+
+                    shutil.copy2(src_file, dst_file)
+
+    # Remove original (unmerged) directories inside base_dir
+    for d in top_dirs:
+        try:
+            shutil.rmtree(d)
+        except Exception:
+            pass
+
+    # Move merged contents from temp_merged into base_dir
+    for item in os.listdir(temp_merged):
+        src = os.path.join(temp_merged, item)
+        dst = os.path.join(base_dir, item)
+        if os.path.exists(dst):
+            # If dst exists (unlikely after rmtree), merge by moving children
+            if os.path.isdir(src):
+                for sub in os.listdir(src):
+                    ssub = os.path.join(src, sub)
+                    ddst = os.path.join(dst, sub)
+                    if os.path.exists(ddst):
+                        # find unique name
+                        base_n, ext = os.path.splitext(sub)
+                        i = 1
+                        while os.path.exists(os.path.join(dst, f"{base_n}_{i}{ext}")):
+                            i += 1
+                        ddst = os.path.join(dst, f"{base_n}_{i}{ext}")
+                    shutil.move(ssub, ddst)
+                # remove empty src
+                try:
+                    os.rmdir(src)
+                except Exception:
+                    pass
+            else:
+                # file exists, rename
+                base_n, ext = os.path.splitext(item)
+                i = 1
+                while os.path.exists(os.path.join(base_dir, f"{base_n}_{i}{ext}")):
+                    i += 1
+                shutil.move(src, os.path.join(base_dir, f"{base_n}_{i}{ext}"))
+        else:
+            shutil.move(src, dst)
+
+    # cleanup temp
+    try:
+        if os.path.exists(temp_merged):
+            shutil.rmtree(temp_merged)
+    except Exception:
+        pass
+
+    return base_dir
