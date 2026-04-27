@@ -521,7 +521,7 @@ Something is off, and i can't figure it out. Please help meeeeee!! ＞﹏＜
 ## 6. After the hiatus
 After 9 months of not touching the project, i really wanted to finish it, also because game EOS.
 
-To keep it short, with more knownledge on how to use ida and how lua works under the hood, i reanalized luaV_execute, and with the help of xLuaDumper i successfully diffed the opcodes between normal lua 51 bytecode and this custom version, and what i found was:
+To keep it short, with more knownledge on how to use ida and how lua works under the hood, i reanalyzed `luaV_execute`, and with the help of xLuaDumper i successfully diffed the opcodes between normal LUA51 bytecode and this custom version, and what i found was:
 1) GuiLongchao custom lua 51 vm has shuffled instructions set:
 	<table>
 	  <tr>
@@ -646,8 +646,8 @@ To keep it short, with more knownledge on how to use ida and how lua works under
 <hr>
 
 - Op.GETTABLE2 is an optimized GETTABLE which performs two sequential table lookups in a single instruction
-- Op.JMP_SHORT is a JMP which uses less instruction bits, it uses 9 bits from C field instead of sBx 18 bits
-- OP.JMP_FAR is a JMP which uses less instruction bits, it uses 9 bits from B field
+- Op.JMP_SHORT is a JMP which uses less instruction bits, it uses 9 bits from `C` field instead of `sBx` 18 bits
+- OP.JMP_FAR is a JMP which uses less instruction bits, it uses 9 bits from `B` field
 
 Found this, making a modified version of [unluac](https://sourceforge.net/projects/unluac/files/) was a pieace of cake. (included in the tools)
 
@@ -657,3 +657,4 @@ Success!!!
 
 ## 7. Conclusions
 Thanks for reading this far in the article. If u find it helpful or you found helpful the tools i provived because leave a star. Thanks.
+This his has been a great learning experience on what obfuscation layers can be implemented to make lua bytecode more secure from decompilation, and also it has been a great learning experience on how game developers can costomize an existing framework to make it more suitable for their needs.
