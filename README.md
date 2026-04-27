@@ -4,12 +4,23 @@
 
 ---
 
-## ⚠️ Disclaimer
-
-This project is intended **solely for educational and research purposes**.  
-All rights to the original game, its code, and content belong to their respective owners.
+> [!WARNING]
+> This project is intended **solely for educational and research purposes**.  
+> All rights to the original game, its code, and content belong to their respective owners.
 
 ---
+
+> [!TIP]
+> Due to the project EOS i will share all the keys and tools i developed to help me reverse engineering the game.
+> May this tool be helpful to someone.
+
+---
+
+## Tools provided
+1. [LuaArchiveUtils](https://github.com/formagGinoo/GuiLongchaoReverse/tree/main/LuaArchiveUtils) - Helpful to take a look on how LuaArchive works and provide functions to easily extract them
+2. [HybridCLRDecrypt.py](https://github.com/formagGinoo/GuiLongchaoReverse/blob/main/tools/HybridCLRDecrypt.py) - Helpful for decrypting hybridclr dlls.
+3. [unluac.jar + batch.py](https://github.com/formagGinoo/GuiLongchaoReverse/blob/main/tools/unluac) - Jar file of the modified unluac version to use with batch.py to process multiple lua bytecode in one go.
+4. [unluac-guilongchao](https://github.com/formagGinoo/GuiLongchaoReverse/tree/main/unluac-guilongchao) - Modified unluac source code with support added for GuiLongchao lua bytecode
 
 ## ©️ Credits
 
@@ -25,6 +36,8 @@ All rights to the original game, its code, and content belong to their respectiv
 3. [HybridCLR](#3-hybridclr)  
 4. [LuaArchive](#4-luaarchive)  
 5. [Lua Bytecode](#5-lua-bytecode)
+6. [After the hiatus](#6-after-the-hiatus)
+7. [Conclusions](#7-conclusions)
 
 ---
 
@@ -170,7 +183,7 @@ else:
                 f.write(data)
             print(f"[+] Dumped to {output_path}")
 ```
-For the decrypt key, its the same things, read the memory based on the struct, decode the bytes into UTF-16 and you will have the key. Please find a way to get it yourself. ^_~
+For the decrypt key, its the same things, read the memory based on the struct, decode the bytes into UTF-16 and you will have the key. ~~Please find a way to get it yourself. ^_~~~ (included in the tools)
 
 ---
 
@@ -207,7 +220,7 @@ private static byte[] _key1 = new byte[]
   86, 120, 144, 171, 205, 239
 };
 ```
-Known the AES algorith, the KEY and the IV, i could statically decrypt the assemblies. You can find the script i used [here](https://github.com/formagGinoo/GuiLongchaoReverse/blob/e413fe4abeac176a67f38c37bd5b005f8bd8499a/tools/HybridCLRDecrypt.py).
+Known the AES algorith, the KEY and the IV, i could statically decrypt the assemblies. You can find the script i used [here](https://github.com/formagGinoo/GuiLongchaoReverse/blob/main/tools/HybridCLRDecrypt.py).
 
 ---
 
@@ -505,8 +518,142 @@ Unknown opcode: 35 - CLOSE
 
 Something is off, and i can't figure it out. Please help meeeeee!! ＞﹏＜
 
-You can find Lua Binary via XLua [here](https://github.com/formagGinoo/GuiLongchaoReverse/blob/df230e5044b710d869c2e77fc3f5539bcca13e38/xLuaDumper5.1/xlua.luac) and Lua Binary via Lua51 [here](https://github.com/formagGinoo/GuiLongchaoReverse/blob/df230e5044b710d869c2e77fc3f5539bcca13e38/xLuaDumper5.1/lua51.luac), so you can take a look yourself. The lua source code used can be found [here](https://github.com/formagGinoo/GuiLongchaoReverse/blob/df230e5044b710d869c2e77fc3f5539bcca13e38/xLuaDumper5.1/opcode.lua)
+## 6. After the hiatus
+After 9 months of not touching the project, i really wanted to finish it, also because game EOS.
 
----
+To keep it short, with more knownledge on how to use ida and how lua works under the hood, i reanalized luaV_execute, and with the help of xLuaDumper i successfully diffed the opcodes between normal lua 51 bytecode and this custom version, and what i found was:
+1) GuiLongchao custom lua 51 vm has shuffled instructions set:
+	<table>
+	  <tr>
+	    <th>Normal LUA51 instruction set</th>
+	    <th>GuiLongchao LUA51 instruction set</th>
+	  </tr>
+	  <tr>
+	    <td>
+	      <pre><code>
+	    	|31      23|22      14|13     6|5      0|
+			|    B     |    C     |   A    | Opcode |
+	      </code></pre>
+	    </td>
+	    <td>
+	      <pre><code>
+	      	|31      24|23      18|17       9|8        0|
+			|     A    |  Opcode  |     C    |     B    |
+	      </code></pre>
+	    </td>
+	  </tr>
+	</table>
+2) GuiLongchao custom lua 51 vm has shuffled opcodes
+3) GuiLongchao custom lua 51 vm has 3 more opcodes:
+	<table>
+	  <tr>
+	    <th>Normal LUA51 opcodes</th>
+	    <th>GuiLongchao LUA51 opcodes</th>
+	  </tr>
+	  <tr>
+	    <td>
+	      <pre><code>
+	    	map = new Op[38];
+	        map[0] = Op.MOVE;
+	        map[1] = Op.LOADK;
+	        map[2] = Op.LOADBOOL;
+	        map[3] = Op.LOADNIL;
+	        map[4] = Op.GETUPVAL;
+	        map[5] = Op.GETGLOBAL;
+	        map[6] = Op.GETTABLE;
+	        map[7] = Op.SETGLOBAL;
+	        map[8] = Op.SETUPVAL;
+	        map[9] = Op.SETTABLE;
+	        map[10] = Op.NEWTABLE;
+	        map[11] = Op.SELF;
+	        map[12] = Op.ADD;
+	        map[13] = Op.SUB;
+	        map[14] = Op.MUL;
+	        map[15] = Op.DIV;
+	        map[16] = Op.MOD;
+	        map[17] = Op.POW;
+	        map[18] = Op.UNM;
+	        map[19] = Op.NOT;
+	        map[20] = Op.LEN;
+	        map[21] = Op.CONCAT;
+	        map[22] = Op.JMP;
+	        map[23] = Op.EQ;
+	        map[24] = Op.LT;
+	        map[25] = Op.LE;
+	        map[26] = Op.TEST;
+	        map[27] = Op.TESTSET;
+	        map[28] = Op.CALL;
+	        map[29] = Op.TAILCALL;
+	        map[30] = Op.RETURN;
+	        map[31] = Op.FORLOOP;
+	        map[32] = Op.FORPREP;
+	        map[33] = Op.TFORLOOP;
+	        map[34] = Op.SETLIST;
+	        map[35] = Op.CLOSE;
+	        map[36] = Op.CLOSURE;
+	        map[37] = Op.VARARG;
+	      </code></pre>
+	    </td>
+	    <td>
+	      <pre><code>
+	      	map = new Op[41];
+	        map[0] = Op.LOADBOOL;
+	        map[1] = Op.FORPREP;
+	        map[2] = Op.TEST;
+	        map[3] = Op.LT;
+	        map[4] = Op.GETTABLE2; //(Op.GETTABLE variant) <- introduced with this lua 51 vm
+	        map[5] = Op.CALL;
+	        map[6] = Op.GETTABLE;
+	        map[7] = Op.POW;
+	        map[8] = Op.UNM;
+	        map[9] = Op.TAILCALL;
+	        map[10] = Op.CLOSURE;
+	        map[11] = Op.DIV;
+	        map[12] = Op.SUB;
+	        map[13] = Op.NOT;
+	        map[14] = Op.GETUPVAL;
+	        map[15] = Op.MUL;
+	        map[16] = Op.SETUPVAL;
+	        map[17] = Op.JMP;
+	        map[18] = Op.TESTSET;
+	        map[19] = Op.LEN;
+	        map[20] = Op.JMP_SHORT; //(Op.JMP variant) <- introduced with GuiLongchao lua 51 vm
+	        map[21] = Op.MOVE;
+	        map[22] = Op.RETURN;
+	        map[23] = Op.JMP_FAR; //(Op.JMP variant) <- introduced with GuiLongchao lua 51 vm
+	        map[24] = Op.FORLOOP;
+	        map[25] = Op.SELF;
+	        map[26] = Op.CLOSE;
+	        map[27] = Op.CONCAT;
+	        map[28] = Op.LOADK;
+	        map[29] = Op.SETTABLE;
+	        map[30] = Op.EQ;
+	        map[31] = Op.SETLIST;
+	        map[32] = Op.GETGLOBAL;
+	        map[33] = Op.TFORLOOP;
+	        map[34] = Op.VARARG;
+	        map[35] = Op.LOADNIL;
+	        map[36] = Op.MOD;
+	        map[37] = Op.NEWTABLE;
+	        map[38] = Op.ADD;
+	        map[39] = Op.LE;
+	        map[40] = Op.SETGLOBAL;
+	      </code></pre>
+	    </td>
+	  </tr>
+	</table>
 
-Feel free to contribute on this project [here](https://discord.com/channels/603359898507673630/1229379510324039780).
+<hr>
+
+- Op.GETTABLE2 is an optimized GETTABLE which performs two sequential table lookups in a single instruction
+- Op.JMP_SHORT is a JMP which uses less instruction bits, it uses 9 bits from C field instead of sBx 18 bits
+- OP.JMP_FAR is a JMP which uses less instruction bits, it uses 9 bits from B field
+
+Found this, making a modified version of [unluac](https://sourceforge.net/projects/unluac/files/) was a pieace of cake. (included in the tools)
+
+Success!!!
+<img width="1372" height="841" alt="image" src="https://github.com/user-attachments/assets/3ed0d28b-0e3d-4178-b5a9-e7410a92b95d" />
+
+
+## 7. Conclusions
+Thanks for reading this far in the article. If u find it helpful or you found helpful the tools i provived because leave a star. Thanks.
